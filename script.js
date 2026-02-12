@@ -1,7 +1,7 @@
 // --- LOGIC: CORE & STATE ---
 const state = {
     subjectCount: 5,
-    studentName: "", // New State Variable
+    studentName: "", 
     subjects: [] 
 };
 
@@ -34,7 +34,7 @@ document.getElementById('btn-back-input').addEventListener('click', () => switch
 // --- VIEW 1: WELCOME ---
 const slider = document.getElementById('subject-slider');
 const display = document.getElementById('subject-count-display');
-const nameInput = document.getElementById('student-name'); // New Input
+const nameInput = document.getElementById('student-name'); 
 
 // Capture Name
 nameInput.addEventListener('input', (e) => {
@@ -60,7 +60,8 @@ function generateInputCards() {
 
     for (let i = 1; i <= state.subjectCount; i++) {
         const id = i;
-        state.subjects.push({ id: id, name: `Subject ${id}`, coeff: 1, examCount: 1, grades: [0] });
+        // Initialize state with hasActivity flag
+        state.subjects.push({ id: id, name: `Subject ${id}`, coeff: 1, examCount: 1, grades: [0], hasActivity: false });
 
         const card = document.createElement('div');
         card.className = 'subject-card';
@@ -83,6 +84,13 @@ function generateInputCards() {
                     <div class="pill-option" data-val="3">3</div>
                     <div class="pill-option" data-val="4">4</div>
                 </div>
+            </div>
+
+            <div style="margin-bottom: 10px;">
+                <div id="btn-activity-${id}" class="pill-option" style="width: fit-content; padding: 8px 20px; margin: 0; margin-bottom: 5px;">
+                    + Add Activity (25%)
+                </div>
+                <div id="activity-container-${id}"></div>
             </div>
 
             <div class="grades-inner-grid" id="grades-grid-${id}">
@@ -112,6 +120,27 @@ function generateInputCards() {
                 updateGradeInputs(id, count);
             });
         });
+
+        // NEW: Activity Button Listener
+        const actBtn = card.querySelector(`#btn-activity-${id}`);
+        actBtn.addEventListener('click', () => {
+            const container = card.querySelector(`#activity-container-${id}`);
+            const subject = state.subjects[id-1];
+
+            if (!subject.hasActivity) {
+                // Add Activity Field
+                container.innerHTML = `<input type="number" id="activity-score-${id}" class="grade-input" placeholder="Activity Score (25%)" min="0" max="20" style="border: 1px solid var(--accent);">`;
+                actBtn.innerText = "Remove Activity";
+                actBtn.classList.add('selected'); 
+                subject.hasActivity = true;
+            } else {
+                // Remove Activity Field
+                container.innerHTML = '';
+                actBtn.innerText = "+ Add Activity (25%)";
+                actBtn.classList.remove('selected');
+                subject.hasActivity = false;
+            }
+        });
     }
 }
 
@@ -138,13 +167,14 @@ document.getElementById('btn-calculate').addEventListener('click', () => {
         const grid = document.getElementById(`grades-grid-${i}`);
         const inputs = grid.querySelectorAll('input');
         
+        // 1. Calculate Standard Exam Average
         let sumGrades = 0;
         let countGrades = 0;
 
         inputs.forEach(inp => {
             const val = parseFloat(inp.value);
             if (isNaN(val) || val < 0 || val > 20) {
-                showToast(`Invalid grade in Subject #${i}`, 'error');
+                showToast(`Invalid exam grade in Subject #${i}`, 'error');
                 hasError = true;
                 return;
             }
@@ -158,14 +188,33 @@ document.getElementById('btn-calculate').addEventListener('click', () => {
             return;
         }
 
-        const avg = sumGrades / countGrades;
+        let examAvg = sumGrades / countGrades;
+        let finalSubjectAvg = examAvg;
+
+        // 2. Check for Activity Score
         const subj = state.subjects[i-1];
-        subj.average = avg;
-        subj.weightedScore = avg * subj.coeff;
+        if (subj.hasActivity) {
+            const actInput = document.getElementById(`activity-score-${i}`);
+            const actVal = parseFloat(actInput.value);
+
+            if (isNaN(actVal) || actVal < 0 || actVal > 20) {
+                showToast(`Invalid activity score in Subject #${i}`, 'error');
+                hasError = true;
+                return;
+            }
+
+            // WEIGHTED CALCULATION: 75% Exams + 25% Activity
+            finalSubjectAvg = (examAvg * 0.75) + (actVal * 0.25);
+        }
+
+        subj.average = finalSubjectAvg;
+        subj.weightedScore = finalSubjectAvg * subj.coeff;
         
         totalWeighted += subj.weightedScore;
         totalCoeff += subj.coeff;
     }
+
+    if (hasError) return;
 
     const finalAvg = totalCoeff > 0 ? totalWeighted / totalCoeff : 0;
     const classification = getClassification(finalAvg);
@@ -185,7 +234,7 @@ document.getElementById('btn-calculate').addEventListener('click', () => {
         item.innerHTML = `
             <div>
                 <div class="res-name" style="font-weight:bold">${sub.name}</div>
-                <div class="res-coeff" style="font-size:12px; color:#aaa">Coeff: ${sub.coeff}</div>
+                <div class="res-coeff" style="font-size:12px; color:#aaa">Coeff: ${sub.coeff} ${sub.hasActivity ? '<span style="color:var(--accent)">• Activity Included</span>' : ''}</div>
             </div>
             <div class="res-score">${sub.average.toFixed(2)}</div>
         `;
@@ -196,7 +245,7 @@ document.getElementById('btn-calculate').addEventListener('click', () => {
     switchView('results');
 });
 
-// --- THE LEGENDARY PDF GENERATOR (UPDATED WITH NAME) ---
+// --- THE LEGENDARY PDF GENERATOR ---
 document.getElementById('btn-export').addEventListener('click', () => {
     showToast("Designing Masterpiece...", "success");
     const { jsPDF } = window.jspdf;
@@ -224,7 +273,7 @@ document.getElementById('btn-export').addEventListener('click', () => {
     doc.setFont("helvetica", "bold");
     doc.text("ACADEMIC REPORT", 20, 25);
     
-    // NEW: DISPLAY STUDENT NAME
+    // DISPLAY STUDENT NAME
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     const studentName = state.studentName ? state.studentName.toUpperCase() : "STUDENT";
