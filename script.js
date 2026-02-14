@@ -242,7 +242,6 @@ function loadHistoryItem(data) {
     generateInputCards(); // Creates DOM elements
 
     // 4. Populate DOM with Saved Data
-    // We need a slight delay or direct manipulation to fill the newly created inputs
     setTimeout(() => {
         state.subjects.forEach(savedSub => {
             // Fill Name
@@ -266,31 +265,14 @@ function loadHistoryItem(data) {
 
             // Restore Activity
             if(savedSub.hasActivity) {
-                // Manually trigger the "Add Activity" state
                 const actBtn = document.getElementById(`btn-activity-${savedSub.id}`);
                 const container = document.getElementById(`activity-container-${savedSub.id}`);
                 
-                // Force UI update
                 actBtn.innerText = "Remove Activity";
                 actBtn.classList.add('selected');
                 
-                // Re-create input
                 container.innerHTML = `<input type="number" id="activity-score-${savedSub.id}" class="grade-input" placeholder="Activity Score (25%)" min="0" max="20" style="border: 1px solid var(--accent);">`;
-                
-                // Actually set value? We rely on the user to re-input? 
-                // No, let's try to find where we stored specific grades. 
-                // Note: The original logic didn't explicitly store "activity score" separate from the weighted calc in the simplest way, 
-                // but checking calculation logic, it reads from DOM.
-                // Since we didn't store raw input values in the simplified 'subjects' array in the original prompt (only grades array), 
-                // we might lose the specific activity score value if not careful.
-                // However, since we are saving the *entire* subject object to Firestore, and that object is derived from DOM, 
-                // we need to ensure the `subjects` array in state holds the raw values.
             }
-
-            // Fill Grades
-            // Note: The original `state.subjects` array initialization set grades: [0].
-            // To properly restore, we need to ensure the calculation logic updates `state.subjects` with actual input values before saving.
-            // *Fix applied in Calculation Logic below* to ensure values are saved to state.
         });
         
         showToast("Report Loaded. Enter grades to recalculate.", "success");
@@ -300,7 +282,7 @@ function loadHistoryItem(data) {
 
 
 // =======================================================
-// PART 3: ORIGINAL CORE LOGIC (Restored & Tweaked)
+// PART 3: ORIGINAL CORE LOGIC
 // =======================================================
 
 const slider = document.getElementById('subject-slider');
@@ -338,9 +320,6 @@ const inputsContainer = document.getElementById('inputs-container');
 function generateInputCards() {
     inputsContainer.innerHTML = ''; 
     
-    // Only reset state subjects if we are NOT loading from history (length check or flag)
-    // To keep it simple: We always rebuild `state.subjects` based on count, 
-    // but if loading from history, we will overlay data later.
     state.subjects = [];
 
     for (let i = 1; i <= state.subjectCount; i++) {
